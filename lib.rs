@@ -179,12 +179,17 @@ pub fn cpu_speed() -> Result<u64, Error> {
         let mut s = String::new();
         File::open("/proc/cpuinfo")?.read_to_string(&mut s)?;
 
-        s.split('\n')
-            .find(|line| line.starts_with("cpu MHz"))
-            .and_then(|line| line.split(':').last())
+        let mut find_cpu_mhz = s.split('\n').find(|line| line.starts_with("cpu MHz"));
+        match find_cpu_mhz {
+            None => find_cpu_mhz = s.split('\n').find(|line| line.starts_with("BogoMIPS")),
+            _ => {}
+        }
+
+        find_cpu_mhz.and_then(|line| line.split(':').last())
             .and_then(|val| val.trim().parse::<f64>().ok())
             .map(|speed| speed as u64)
             .ok_or(Error::Unknown)
+
     } else if cfg!(target_os = "macos") || cfg!(target_os = "windows") {
         unsafe { Ok(get_cpu_speed()) }
     } else {
@@ -248,7 +253,7 @@ pub fn mem_info() -> Result<MemInfo, Error> {
             let label = split_line.next();
             let value = split_line.next();
             if value.is_some() && label.is_some() {
-                let label = label.unwrap().split(":").nth(0).ok_or(Error::Unknown)?;
+                let label = label.unwrap().split(':').nth(0).ok_or(Error::Unknown)?;
                 let value = value.unwrap().parse::<u64>().ok().ok_or(Error::Unknown)?;
                 meminfo_hashmap.insert(label, value);
             }
@@ -286,12 +291,12 @@ pub fn hostname() -> Result<String, Error> {
     if cfg!(unix) {
         Command::new("hostname")
             .output()
-            .map_err(|e| Error::ExecFailed(e))
+            .map_err(Error::ExecFailed)
             .map(|output| String::from_utf8(output.stdout).unwrap().trim().to_string())
     } else if cfg!(windows) {
         Command::new("hostname")
             .output()
-            .map_err(|e| Error::ExecFailed(e))
+            .map_err(Error::ExecFailed)
             .map(|output| String::from_utf8(output.stdout).unwrap().trim().to_string())
     } else {
         Err(Error::UnsupportedSystem)
