@@ -5,6 +5,7 @@
 #include <psapi.h>
 
 #include "info.h"
+#include "windows_helpers.h"
 
 #define LEN 20
 #define MAXPROCESSES 1024
@@ -13,6 +14,8 @@ static const char *os_type = "Windows";
 /* Internal Declarations */
 static double calculate_cpu_load(unsigned long long, unsigned long long);
 static unsigned long long file_time_to_ull(const FILETIME);
+
+#define rdtsc	__asm __emit 0fh __asm __emit 031h
 
 /* Get information */
 const char *get_os_type(void) {
@@ -51,13 +54,13 @@ unsigned long get_cpu_speed(void) {
 	QueryPerformanceCounter(&qw_start);
 	QueryPerformanceFrequency(&qw_wait);
 	qw_wait.QuadPart >>= 5;
-	unsigned __int64 start = __rdtsc();
+	unsigned __int64 start = getTimeStamp();
 	
 	do {
 		QueryPerformanceCounter(&qw_current);
 	} while (qw_current.QuadPart - qw_start.QuadPart < qw_wait.QuadPart);
 	
-	return ((__rdtsc() - start) << 5) / 1000000;
+	return ((getTimeStamp() - start) << 5) / 1000000;
 }
 
 LoadAvg get_loadavg(void) {
